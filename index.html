@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MANA — Jogo Online</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+  :root {
+    --red: #c0392b;
+    --red-light: #e74c3c;
+    --yellow: #d4a017;
+    --yellow-light: #f1c40f;
+    --bg: #0d0d0d;
+    --surface: #1a1610;
+    --surface2: #231e17;
+    --border: #3a3020;
+    --text: #e8dcc8;
+    --text-dim: #8a7a60;
+    --single: #1e2a1e;
+    --double: #2a1e2a;
+    --triple: #2a221a;
+    --single-border: #2d4a2d;
+    --double-border: #4a2d4a;
+    --triple-border: #4a3a1a;
+    --mana: #00d4ff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Crimson Text', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at 20% 20%, rgba(192,57,43,0.06) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 80%, rgba(212,160,23,0.06) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    text-align: center;
+    padding: 2rem 1rem 1rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    background: linear-gradient(135deg, var(--red-light), var(--yellow), var(--red-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    line-height: 1;
+  }
+
+  .subtitle {
+    font-style: italic;
+    color: var(--text-dim);
+    font-size: 1rem;
+    margin-top: 0.3rem;
+    letter-spacing: 0.2em;
+  }
+
+  /* SCREENS */
+  .screen { display: none; width: 100%; max-width: 900px; padding: 1rem; position: relative; z-index: 1; }
+  .screen.active { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; }
+
+  /* LOBBY */
+  .lobby-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 440px;
+    text-align: center;
+  }
+
+  .lobby-card h2 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.2rem;
+    letter-spacing: 0.15em;
+    color: var(--yellow);
+    margin-bottom: 1.5rem;
+  }
+
+  .btn {
+    display: inline-block;
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+    padding: 0.75rem 2rem;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    background: transparent;
+    border-radius: 2px;
+  }
+
+  .btn-primary {
+    border-color: var(--yellow);
+    color: var(--yellow);
+  }
+  .btn-primary:hover { background: var(--yellow); color: var(--bg); }
+
+  .btn-secondary {
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .btn-secondary:hover { background: var(--red); color: var(--text); }
+
+  .btn-rules {
+    border-color: var(--text-dim);
+    color: var(--text-dim);
+    font-size: 0.75rem;
+  }
+  .btn-rules:hover { border-color: var(--text); color: var(--text); }
+
+  .btn-group { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+    padding: 0.75rem 1rem;
+    text-align: center;
+    border-radius: 2px;
+    outline: none;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+  }
+  input[type="text"]:focus { border-color: var(--yellow); }
+
+  .room-code {
+    font-family: 'Cinzel', serif;
+    font-size: 2rem;
+    letter-spacing: 0.4em;
+    color: var(--mana);
+    background: var(--surface2);
+    border: 1px solid var(--mana);
+    padding: 0.75rem 1.5rem;
+    border-radius: 2px;
+    margin: 1rem 0;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-block;
+  }
+  .room-code:hover { background: rgba(0,212,255,0.1); }
+
+  .status-msg {
+    font-style: italic;
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    min-height: 1.5rem;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    margin: 1rem 0;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* GAME LAYOUT */
+  #screen-game {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 1000px;
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 200px;
+    max-width: 220px;
+  }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .info-card h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+  }
+
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 2px;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s;
+    border: 1px solid transparent;
+  }
+  .player-row.active-turn {
+    border-color: var(--yellow);
+    background: rgba(212,160,23,0.05);
+  }
+
+  .player-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-red { background: var(--red); }
+  .dot-yellow { background: var(--yellow); }
+
+  .player-name {
+    font-family: 'Cinzel', serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    flex: 1;
+  }
+
+  .captured-count {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  #turn-display {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-align: center;
+    padding: 0.5rem;
+    border-radius: 2px;
+    transition: all 0.3s;
+  }
+
+  #mana-info {
+    font-style: italic;
+    color: var(--mana);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    min-height: 2rem;
+  }
+
+  #game-log {
+    max-height: 180px;
+    overflow-y: auto;
+    font-size: 0.8rem;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+  #game-log::-webkit-scrollbar { width: 4px; }
+  #game-log::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .log-entry { border-bottom: 1px solid rgba(58,48,32,0.5); padding: 0.1rem 0; }
+  .log-red { color: #e74c3c88; }
+  .log-yellow { color: #f1c40f88; }
+
+  /* BOARD */
+  .board-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  #board {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 3px;
+    background: #0a0a08;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+
+  .cell {
+    width: clamp(60px, 10vw, 85px);
+    height: clamp(60px, 10vw, 85px);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .cell.single { background: var(--single); border: 1px solid var(--single-border); }
+  .cell.double { background: var(--double); border: 1px solid var(--double-border); }
+  .cell.triple { background: var(--triple); border: 1px solid var(--triple-border); }
+
+  .cell-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.5rem;
+    letter-spacing: 0.05em;
+    opacity: 0.35;
+    text-transform: uppercase;
+    position: absolute;
+    bottom: 3px;
+    right: 4px;
+  }
+
+  .cell.selected { outline: 2px solid var(--yellow); outline-offset: -2px; }
+  .cell.valid-move { outline: 2px solid rgba(0,212,255,0.6); outline-offset: -2px; }
+  .cell.valid-move::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: rgba(0,212,255,0.12);
+  }
+  .cell.mana-cell { box-shadow: 0 0 12px var(--mana), inset 0 0 8px rgba(0,212,255,0.1); }
+  .cell:hover:not(.empty-hover) { filter: brightness(1.3); }
+
+  /* PIECES */
+  .piece {
+    width: clamp(36px, 6vw, 52px);
+    height: clamp(36px, 6vw, 52px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cinzel', serif;
+    font-size: clamp(0.55rem, 1.2vw, 0.75rem);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    border: 2px solid;
+    transition: all 0.2s;
+    position: relative;
+    z-index: 1;
+    user-select: none;
+    cursor: pointer;
+  }
+
+  .piece-red {
+    background: radial-gradient(circle at 35% 35%, #e74c3c, #8b1a1a);
+    border-color: #ff6b5b;
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(192,57,43,0.5);
+  }
+
+  .piece-yellow {
+    background: radial-gradient(circle at 35% 35%, #f1c40f, #8a6800);
+    border-color: #ffe066;
+    color: #1a1000;
+    box-shadow: 0 3px 10px rgba(212,160,23,0.5);
+  }
+
+  .piece.damyo {
+    border-width: 3px;
+    font-size: clamp(0.6rem, 1.3vw, 0.8rem);
+  }
+
+  .piece-red.damyo { border-color: #ff9999; box-shadow: 0 3px 14px rgba(192,57,43,0.8); }
+  .piece-yellow.damyo { border-color: #ffee99; box-shadow: 0 3px 14px rgba(212,160,23,0.8); }
+
+  .mana-token {
+    position: absolute;
+    top: -4px; right: -4px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--mana);
+    box-shadow: 0 0 8px var(--mana);
+    z-index: 2;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 6px var(--mana); }
+    50% { box-shadow: 0 0 14px var(--mana), 0 0 20px var(--mana); }
+  }
+
+  /* BOARD LEGEND */
+  .board-legend {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+  .legend-swatch {
+    width: 12px; height: 12px; border-radius: 2px;
+    border: 1px solid;
+  }
+  .swatch-single { background: var(--single); border-color: var(--single-border); }
+  .swatch-double { background: var(--double); border-color: var(--double-border); }
+  .swatch-triple { background: var(--triple); border-color: var(--triple-border); }
+
+  /* WIN OVERLAY */
+  #win-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  #win-overlay.show { display: flex; }
+
+  #win-message {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    text-align: center;
+  }
+
+  /* RULES MODAL */
+  #rules-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 200;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-y: auto;
+  }
+  #rules-modal.show { display: flex; }
+
+  .rules-content {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    max-width: 600px;
+    width: 100%;
+    position: relative;
+  }
+
+  .rules-content h2 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.5rem;
+    letter-spacing: 0.2em;
+    color: var(--yellow);
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+
+  .rules-content h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+    color: var(--red-light);
+    margin: 1.2rem 0 0.5rem;
+    text-transform: uppercase;
+  }
+
+  .rules-content p, .rules-content li {
+    line-height: 1.7;
+    color: var(--text);
+    font-size: 0.95rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .rules-content ul { padding-left: 1.2rem; }
+
+  .close-btn {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    cursor: pointer;
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 2px;
+  }
+  .close-btn:hover { border-color: var(--text); color: var(--text); }
+
+  .highlight-mana { color: var(--mana); font-weight: 600; }
+  .highlight-red { color: var(--red-light); }
+  .highlight-yellow { color: var(--yellow); }
+
+  /* NOTIFICATION */
+  #notification {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(-80px);
+    background: var(--surface2);
+    border: 1px solid var(--yellow);
+    color: var(--yellow);
+    font-family: 'Cinzel', serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    padding: 0.6rem 1.5rem;
+    border-radius: 2px;
+    z-index: 300;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+  }
+  #notification.show { transform: translateX(-50%) translateY(0); }
+
+  /* Captured pieces display */
+  .captured-pieces {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 0.3rem;
+  }
+  .mini-piece {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 1px solid;
+  }
+  .mini-red { background: var(--red); border-color: var(--red-light); }
+  .mini-yellow { background: var(--yellow); border-color: var(--yellow-light); }
+
+  @media (max-width: 700px) {
+    #screen-game { flex-direction: column; align-items: center; }
+    .sidebar { max-width: 100%; width: 100%; flex-direction: row; flex-wrap: wrap; }
+    .info-card { flex: 1; min-width: 160px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MANA</h1>
+  <p class="subtitle">por Claude Leroy · 2 jogadores</p>
+</header>
+
+<!-- LOBBY -->
+<div id="screen-lobby" class="screen active">
+  <div class="lobby-card">
+    <h2>⚔ Criar Partida</h2>
+    <p class="status-msg" id="create-status">Clique para gerar um código de sala</p>
+    <div id="room-code-display" style="display:none">
+      <div class="room-code" id="room-code-text" title="Clique para copiar">——</div>
+      <p style="font-size:0.8rem; color:var(--text-dim); font-style:italic;">Compartilhe este código com seu amigo</p>
+    </div>
+    <br>
+    <button class="btn btn-primary" onclick="createRoom()">Criar Sala</button>
+  </div>
+
+  <div class="lobby-card">
+    <h2>🔗 Entrar na Partida</h2>
+    <input type="text" id="join-code-input" placeholder="CÓDIGO DA SALA" maxlength="6">
+    <button class="btn btn-secondary" onclick="joinRoom()">Entrar</button>
+    <p class="status-msg" id="join-status"></p>
+  </div>
+
+  <button class="btn btn-rules" onclick="showRules()">📜 Ver Regras em Português</button>
+</div>
+
+<!-- GAME -->
+<div id="screen-game" class="screen">
+  <div class="sidebar">
+    <div class="info-card">
+      <h3>Jogadores</h3>
+      <div class="player-row" id="row-red">
+        <div class="player-dot dot-red"></div>
+        <span class="player-name">Vermelho</span>
+        <span class="captured-count" id="cap-red">0 cap.</span>
+      </div>
+      <div class="captured-pieces" id="caps-red"></div>
+      <div class="player-row" id="row-yellow">
+        <div class="player-dot dot-yellow"></div>
+        <span class="player-name">Amarelo</span>
+        <span class="captured-count" id="cap-yellow">0 cap.</span>
+      </div>
+      <div class="captured-pieces" id="caps-yellow"></div>
+    </div>
+
+    <div class="info-card">
+      <h3>Turno</h3>
+      <div id="turn-display">—</div>
+      <br>
+      <h3>Mana</h3>
+      <div id="mana-info">Primeiro turno — sem restrição</div>
+    </div>
+
+    <div class="info-card">
+      <h3>Log</h3>
+      <div id="game-log"></div>
+    </div>
+
+    <button class="btn btn-rules" onclick="showRules()" style="font-size:0.7rem; padding:0.5rem 1rem">📜 Regras</button>
+  </div>
+
+  <div class="board-wrap">
+    <div id="board"></div>
+    <div class="board-legend">
+      <div class="legend-item"><div class="legend-swatch swatch-single"></div>Simples (1)</div>
+      <div class="legend-item"><div class="legend-swatch swatch-double"></div>Dupla (2)</div>
+      <div class="legend-item"><div class="legend-swatch swatch-triple"></div>Tripla (3)</div>
+    </div>
+  </div>
+</div>
+
+<!-- WIN OVERLAY -->
+<div id="win-overlay">
+  <div id="win-message"></div>
+  <button class="btn btn-primary" onclick="location.reload()">Nova Partida</button>
+</div>
+
+<!-- RULES MODAL -->
+<div id="rules-modal">
+  <div class="rules-content">
+    <button class="close-btn" onclick="hideRules()">✕</button>
+    <h2>📜 Regras do MANA</h2>
+
+    <h3>Objetivo</h3>
+    <p>Capture o <strong>Damyo</strong> adversário usando seu Damyo ou um de seus Ronin.</p>
+
+    <h3>Componentes</h3>
+    <ul>
+      <li>Tabuleiro 6×6 com 36 casas: 12 <span style="color:var(--single-border)">simples</span>, 12 <span style="color:var(--double-border)">duplas</span> e 12 <span style="color:var(--triple-border)">triplas</span></li>
+      <li>5 Ronin + 1 Damyo por jogador (<span class="highlight-red">Vermelho</span> e <span class="highlight-yellow">Amarelo</span>)</li>
+      <li>1 token <span class="highlight-mana">Mana</span></li>
+    </ul>
+
+    <h3>Preparação</h3>
+    <p>O Vermelho posiciona o tabuleiro e coloca suas 6 peças em qualquer casa das suas 2 primeiras fileiras. O Amarelo faz o mesmo nas suas fileiras.</p>
+
+    <h3>Movimento</h3>
+    <ul>
+      <li>Casa <strong>simples</strong> → mova <strong>1 casa</strong></li>
+      <li>Casa <strong>dupla</strong> → mova <strong>2 casas</strong></li>
+      <li>Casa <strong>tripla</strong> → mova <strong>3 casas</strong></li>
+      <li>Movimento horizontal ou vertical (não diagonal)</li>
+      <li>Pode mudar de direção durante o movimento</li>
+      <li>Não pode passar por cima de peças nem cruzar a mesma casa duas vezes</li>
+      <li>Pousar sobre uma peça inimiga a <strong>captura</strong></li>
+    </ul>
+
+    <h3>O <span class="highlight-mana">Mana</span></h3>
+    <p>Após cada jogada, a peça movida recebe o token <span class="highlight-mana">Mana</span>. O adversário deve então mover uma peça que esteja no <strong>mesmo tipo de casa</strong> (simples/dupla/tripla) que a peça com Mana.</p>
+
+    <h3>Exceções do Mana</h3>
+    <p>Se não houver peça válida para mover (nenhuma no tipo de casa certo, ou todas bloqueadas), o jogador pode:</p>
+    <ul>
+      <li>Mover qualquer outra peça (que se move conforme seu tipo de casa)</li>
+      <li><strong>OU</strong> recolocar um Ronin capturado em uma casa do tipo exigido pelo Mana (encerrando o turno)</li>
+    </ul>
+
+    <h3>Vitória</h3>
+    <p>O jogo termina imediatamente quando o <strong>Damyo</strong> adversário for capturado!</p>
+  </div>
+</div>
+
+<!-- NOTIFICATION -->
+<div id="notification"></div>
+
+<script>
+// ============================================================
+// BOARD LAYOUT: 0=single, 1=double, 2=triple
+// ============================================================
+const BOARD_TYPES = [
+  [0,1,2,0,1,2],
+  [2,0,1,2,0,1],
+  [1,2,0,1,2,0],
+  [0,1,2,0,1,2],
+  [2,0,1,2,0,1],
+  [1,2,0,1,2,0],
+];
+const TYPE_NAMES = ['simples','dupla','tripla'];
+const TYPE_MOVES = [1,2,3];
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let state = {
+  board: Array(36).fill(null), // {color:'red'|'yellow', type:'ronin'|'damyo'}
+  currentTurn: 'red',
+  manaCell: null, // index of cell carrying mana token
+  selected: null,
+  validMoves: [],
+  capturedRed: 0,
+  capturedYellow: 0,
+  capturedRedRonin: 0,   // captured ronin of red (available to yellow to return)
+  capturedYellowRonin: 0,
+  gameOver: false,
+  phase: 'setup', // 'setup' | 'play'
+  setupCount: {red:0, yellow:0},
+  mustRespawnInstead: false, // when mana exception: can place captured ronin
+  respawnType: null, // which type to place on
+  myColor: null,
+  isMyTurn: false,
+};
+
+let peer = null;
+let conn = null;
+let isHost = false;
+
+// ============================================================
+// PEER CONNECTION
+// ============================================================
+function initPeer(asHost) {
+  isHost = asHost;
+  const peerId = asHost ? generateCode() : null;
+  peer = new Peer(peerId, {
+    host: '0.peerjs.com', port: 443, secure: true,
+    config: { iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]}
+  });
+
+  peer.on('open', (id) => {
+    if (asHost) {
+      document.getElementById('create-status').textContent = 'Aguardando adversário...';
+      document.getElementById('room-code-display').style.display = 'block';
+      document.getElementById('room-code-text').textContent = id.toUpperCase();
+      document.getElementById('room-code-text').onclick = () => {
+        navigator.clipboard?.writeText(id.toUpperCase());
+        notify('Código copiado!');
+      };
+    }
+  });
+
+  peer.on('connection', (c) => {
+    conn = c;
+    setupConn();
+    if (asHost) {
+      state.myColor = 'red';
+      sendToOther({type:'color', color:'yellow'});
+      startSetupPhase();
+    }
+  });
+
+  peer.on('error', (err) => {
+    notify('Erro de conexão: ' + err.type);
+  });
+}
+
+function joinRoom() {
+  const code = document.getElementById('join-code-input').value.trim().toLowerCase();
+  if (!code) { notify('Digite o código da sala'); return; }
+  document.getElementById('join-status').textContent = 'Conectando...';
+  initPeer(false);
+  peer.on('open', () => {
+    conn = peer.connect(code, {reliable: true});
+    setupConn();
+    conn.on('open', () => {
+      document.getElementById('join-status').textContent = 'Conectado! Aguardando host...';
+    });
+  });
+}
+
+function createRoom() {
+  document.getElementById('create-status').textContent = 'Gerando sala...';
+  initPeer(true);
+}
+
+function setupConn() {
+  conn.on('data', (data) => {
+    handleMessage(data);
+  });
+  conn.on('close', () => notify('Adversário desconectou'));
+}
+
+function sendToOther(data) {
+  if (conn && conn.open) conn.send(data);
+}
+
+function handleMessage(msg) {
+  if (msg.type === 'color') {
+    state.myColor = msg.color;
+  } else if (msg.type === 'state') {
+    state = {...state, ...msg.state};
+    renderBoard();
+    updateUI();
+  } else if (msg.type === 'start') {
+    startSetupPhase();
+  }
+}
+
+function syncState() {
+  sendToOther({type:'state', state: {
+    board: state.board,
+    currentTurn: state.currentTurn,
+    manaCell: state.manaCell,
+    capturedRed: state.capturedRed,
+    capturedYellow: state.capturedYellow,
+    capturedRedRonin: state.capturedRedRonin,
+    capturedYellowRonin: state.capturedYellowRonin,
+    gameOver: state.gameOver,
+    phase: state.phase,
+    setupCount: state.setupCount,
+    mustRespawnInstead: state.mustRespawnInstead,
+    respawnType: state.respawnType,
+  }});
+}
+
+// ============================================================
+// SETUP PHASE
+// ============================================================
+function startSetupPhase() {
+  showScreen('game');
+  state.phase = 'setup';
+  state.currentTurn = 'red';
+  state.isMyTurn = (state.myColor === 'red');
+  initBoard();
+  renderBoard();
+  updateUI();
+  if (isHost) {
+    sendToOther({type:'start'});
+    syncState();
+  }
+  addLog('Fase de setup: Vermelho posiciona suas peças nas 2 primeiras fileiras', 'red');
+}
+
+function initBoard() {
+  state.board = Array(36).fill(null);
+  state.selected = null;
+  state.validMoves = [];
+  state.manaCell = null;
+  state.setupCount = {red:0, yellow:0};
+  state.capturedRed = 0;
+  state.capturedYellow = 0;
+  state.capturedRedRonin = 0;
+  state.capturedYellowRonin = 0;
+  state.gameOver = false;
+  state.mustRespawnInstead = false;
+}
+
+// ============================================================
+// BOARD RENDER
+// ============================================================
+function buildBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  for (let i = 0; i < 36; i++) {
+    const row = Math.floor(i/6), col = i%6;
+    const t = BOARD_TYPES[row][col];
+    const cell = document.createElement('div');
+    cell.className = `cell ${['single','double','triple'][t]}`;
+    cell.dataset.idx = i;
+    const label = document.createElement('span');
+    label.className = 'cell-label';
+    label.textContent = TYPE_NAMES[t];
+    cell.appendChild(label);
+    cell.addEventListener('click', () => onCellClick(i));
+    board.appendChild(cell);
+  }
+}
+
+function renderBoard() {
+  const cells = document.querySelectorAll('.cell');
+  cells.forEach((cell, i) => {
+    // Remove piece children (keep label)
+    [...cell.children].forEach(c => { if (!c.classList.contains('cell-label')) c.remove(); });
+    cell.classList.remove('selected','valid-move','mana-cell');
+
+    if (i === state.manaCell) cell.classList.add('mana-cell');
+    if (state.selected === i) cell.classList.add('selected');
+    if (state.validMoves.includes(i)) cell.classList.add('valid-move');
+
+    const piece = state.board[i];
+    if (piece) {
+      const el = document.createElement('div');
+      el.className = `piece piece-${piece.color}${piece.type==='damyo'?' damyo':''}`;
+      el.textContent = piece.type === 'damyo' ? 'DAMYO' : 'RONIN';
+      if (i === state.manaCell) {
+        const tok = document.createElement('div');
+        tok.className = 'mana-token';
+        el.appendChild(tok);
+      }
+      cell.appendChild(el);
+    }
+  });
+}
+
+// ============================================================
+// CELL CLICK
+// ============================================================
+function onCellClick(idx) {
+  if (state.gameOver) return;
+  if (state.myColor !== state.currentTurn) return; // not your turn
+
+  if (state.phase === 'setup') {
+    handleSetupClick(idx);
+    return;
+  }
+
+  // Respawn mode
+  if (state.mustRespawnInstead) {
+    handleRespawnClick(idx);
+    return;
+  }
+
+  const piece = state.board[idx];
+
+  // If clicking own piece: select it
+  if (piece && piece.color === state.currentTurn) {
+    selectPiece(idx);
+    return;
+  }
+
+  // If clicking valid move destination
+  if (state.validMoves.includes(idx)) {
+    doMove(state.selected, idx);
+    return;
+  }
+
+  // Deselect
+  state.selected = null;
+  state.validMoves = [];
+  renderBoard();
+}
+
+// ============================================================
+// SETUP PHASE CLICK
+// ============================================================
+function handleSetupClick(idx) {
+  const row = Math.floor(idx/6);
+  const color = state.currentTurn;
+
+  // Red: rows 0-1 (top), Yellow: rows 4-5 (bottom)
+  const validRows = color === 'red' ? [0,1] : [4,5];
+  if (!validRows.includes(row)) { notify(`Posicione nas fileiras ${validRows.map(r=>r+1).join(' ou ')}`); return; }
+  if (state.board[idx]) { notify('Casa ocupada'); return; }
+
+  const count = state.setupCount[color];
+  const isDamyo = count === 0; // first piece placed is Damyo
+  state.board[idx] = {color, type: isDamyo ? 'damyo' : 'ronin'};
+  state.setupCount[color]++;
+
+  addLog(`${color==='red'?'Vermelho':'Amarelo'} posiciona ${isDamyo?'Damyo':'Ronin'}`, color);
+
+  if (state.setupCount[color] === 6) {
+    if (color === 'red') {
+      state.currentTurn = 'yellow';
+      addLog('Amarelo: posicione suas peças (fileiras 5 e 6)', 'yellow');
+    } else {
+      // Both done
+      state.phase = 'play';
+      state.currentTurn = 'red';
+      addLog('Jogo iniciado! Vez do Vermelho', 'red');
+    }
+  }
+
+  state.selected = null;
+  state.validMoves = [];
+  state.isMyTurn = (state.myColor === state.currentTurn);
+  syncState();
+  renderBoard();
+  updateUI();
+}
+
+// ============================================================
+// SELECT PIECE & VALID MOVES
+// ============================================================
+function selectPiece(idx) {
+  // Check mana restriction
+  if (state.manaCell !== null) {
+    const manaType = getCellType(state.manaCell);
+    const pieceType = getCellType(idx);
+    if (pieceType !== manaType) {
+      // Check if any valid piece exists of right type
+      const hasValidPiece = hasMovablePieceOfType(state.currentTurn, manaType);
+      if (hasValidPiece) {
+        notify(`Mana: mova uma peça em casa ${TYPE_NAMES[manaType]}`);
+        return;
+      }
+      // Exception applies — allow any piece
+    }
+  }
+
+  state.selected = idx;
+  state.validMoves = getValidMoves(idx);
+  renderBoard();
+}
+
+function getCellType(idx) {
+  return BOARD_TYPES[Math.floor(idx/6)][idx%6];
+}
+
+function getValidMoves(idx) {
+  const steps = TYPE_MOVES[getCellType(idx)];
+  const moves = [];
+  // BFS/DFS with exact steps, no revisiting, no passing through pieces
+  function dfs(pos, remaining, visited) {
+    if (remaining === 0) {
+      if (!moves.includes(pos) && pos !== idx) moves.push(pos);
+      return;
+    }
+    const row = Math.floor(pos/6), col = pos%6;
+    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    for (const [dr,dc] of dirs) {
+      const nr=row+dr, nc=col+dc;
+      if (nr<0||nr>5||nc<0||nc>5) continue;
+      const nidx = nr*6+nc;
+      if (visited.has(nidx)) continue;
+      // Can't pass through any piece (can land on enemy)
+      if (state.board[nidx] && remaining > 1) continue; // occupied mid-path
+      if (state.board[nidx] && remaining === 1 && state.board[nidx].color === state.currentTurn) continue; // own piece
+      visited.add(nidx);
+      dfs(nidx, remaining-1, visited);
+      visited.delete(nidx);
+    }
+  }
+  dfs(idx, steps, new Set([idx]));
+  return moves;
+}
+
+function hasMovablePieceOfType(color, type) {
+  for (let i=0; i<36; i++) {
+    if (!state.board[i] || state.board[i].color !== color) continue;
+    if (getCellType(i) !== type) continue;
+    if (getValidMoves(i).length > 0) return true;
+  }
+  return false;
+}
+
+// ============================================================
+// DO MOVE
+// ============================================================
+function doMove(from, to) {
+  const piece = state.board[from];
+  const target = state.board[to];
+
+  if (target) {
+    // Capture
+    if (target.type === 'damyo') {
+      state.board[to] = piece;
+      state.board[from] = null;
+      endGame(state.currentTurn);
+      return;
+    }
+    if (target.color === 'red') {
+      state.capturedRed++;
+      if (target.type === 'ronin') state.capturedRedRonin++;
+    } else {
+      state.capturedYellow++;
+      if (target.type === 'ronin') state.capturedYellowRonin++;
+    }
+    addLog(`${state.currentTurn==='red'?'Vermelho':'Amarelo'} capturou ${target.type} ${target.color==='red'?'vermelho':'amarelo'}`, state.currentTurn);
+  }
+
+  state.board[to] = piece;
+  state.board[from] = null;
+  state.manaCell = to;
+  state.selected = null;
+  state.validMoves = [];
+
+  const from_name = `(${Math.floor(from/6)+1},${from%6+1})`;
+  const to_name = `(${Math.floor(to/6)+1},${to%6+1})`;
+  addLog(`${state.currentTurn==='red'?'Vermelho':'Amarelo'}: ${piece.type} ${from_name}→${to_name}`, state.currentTurn);
+
+  // Switch turn
+  state.currentTurn = state.currentTurn === 'red' ? 'yellow' : 'red';
+  state.isMyTurn = (state.myColor === state.currentTurn);
+
+  // Check mana exception for next player
+  checkManaException();
+
+  syncState();
+  renderBoard();
+  updateUI();
+}
+
+function checkManaException() {
+  if (state.manaCell === null) return;
+  const manaType = getCellType(state.manaCell);
+  const color = state.currentTurn;
+  const hasValid = hasMovablePieceOfType(color, manaType);
+  const capturedRonin = color === 'red' ? state.capturedRedRonin : state.capturedYellowRonin;
+
+  if (!hasValid) {
+    state.mustRespawnInstead = capturedRonin > 0;
+    state.respawnType = manaType;
+    if (capturedRonin > 0) {
+      addLog(`Exceção Mana: ${color==='red'?'Vermelho':'Amarelo'} pode recolocar Ronin ou mover qualquer peça`, color);
+    } else {
+      addLog(`Exceção Mana: ${color==='red'?'Vermelho':'Amarelo'} move qualquer peça`, color);
+      state.mustRespawnInstead = false;
+    }
+  } else {
+    state.mustRespawnInstead = false;
+  }
+}
+
+function handleRespawnClick(idx) {
+  const t = getCellType(idx);
+  if (t !== state.respawnType) { notify(`Coloque em casa ${TYPE_NAMES[state.respawnType]}`); return; }
+  if (state.board[idx]) { notify('Casa ocupada'); return; }
+
+  state.board[idx] = {color: state.currentTurn, type: 'ronin'};
+  if (state.currentTurn === 'red') state.capturedRedRonin--;
+  else state.capturedYellowRonin--;
+
+  addLog(`${state.currentTurn==='red'?'Vermelho':'Amarelo'} recolocou Ronin`, state.currentTurn);
+  state.mustRespawnInstead = false;
+  state.currentTurn = state.currentTurn === 'red' ? 'yellow' : 'red';
+  state.isMyTurn = (state.myColor === state.currentTurn);
+  state.manaCell = idx;
+
+  syncState();
+  renderBoard();
+  updateUI();
+}
+
+// ============================================================
+// END GAME
+// ============================================================
+function endGame(winner) {
+  state.gameOver = true;
+  const msg = document.getElementById('win-message');
+  msg.style.color = winner === 'red' ? 'var(--red-light)' : 'var(--yellow)';
+  msg.textContent = `${winner === 'red' ? '🔴 VERMELHO' : '🟡 AMARELO'} VENCEU!`;
+  document.getElementById('win-overlay').classList.add('show');
+  state.board[state.selected] = null;
+  syncState();
+}
+
+// ============================================================
+// UI UPDATE
+// ============================================================
+function updateUI() {
+  // Turn display
+  const td = document.getElementById('turn-display');
+  if (state.phase === 'setup') {
+    td.textContent = `Setup: ${state.currentTurn === 'red' ? 'Vermelho' : 'Amarelo'} (${state.setupCount[state.currentTurn]}/6)`;
+    td.style.color = state.currentTurn === 'red' ? 'var(--red-light)' : 'var(--yellow)';
+  } else {
+    const isMe = state.myColor === state.currentTurn;
+    td.textContent = isMe ? '⚔ Sua vez!' : `Vez do ${state.currentTurn === 'red' ? 'Vermelho' : 'Amarelo'}`;
+    td.style.color = state.currentTurn === 'red' ? 'var(--red-light)' : 'var(--yellow)';
+  }
+
+  // Active turn highlight
+  document.getElementById('row-red').classList.toggle('active-turn', state.currentTurn === 'red' && state.phase === 'play');
+  document.getElementById('row-yellow').classList.toggle('active-turn', state.currentTurn === 'yellow' && state.phase === 'play');
+
+  // Captured counts
+  document.getElementById('cap-red').textContent = `${state.capturedRed} cap.`;
+  document.getElementById('cap-yellow').textContent = `${state.capturedYellow} cap.`;
+
+  // Mana info
+  const mi = document.getElementById('mana-info');
+  if (state.manaCell === null) {
+    mi.textContent = 'Primeiro turno — sem restrição';
+  } else {
+    const t = getCellType(state.manaCell);
+    if (state.mustRespawnInstead) {
+      mi.textContent = `Exceção! Coloque Ronin em casa ${TYPE_NAMES[t]} OU mova qualquer peça`;
+    } else {
+      mi.textContent = `Mova peça em casa ${TYPE_NAMES[t]}`;
+    }
+  }
+
+  // Your color indicator
+  if (state.myColor) {
+    const you = state.myColor === 'red' ? 'Vermelho' : 'Amarelo';
+    document.querySelector('.subtitle').textContent = `Você é o ${you} · por Claude Leroy`;
+  }
+}
+
+function addLog(text, color) {
+  const log = document.getElementById('game-log');
+  const entry = document.createElement('div');
+  entry.className = `log-entry${color ? ' log-'+color : ''}`;
+  entry.textContent = text;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function generateCode() {
+  return Math.random().toString(36).substr(2, 6).toUpperCase();
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+}
+
+function showRules() { document.getElementById('rules-modal').classList.add('show'); }
+function hideRules() { document.getElementById('rules-modal').classList.remove('show'); }
+
+function notify(msg) {
+  const el = document.getElementById('notification');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+buildBoard();
+</script>
+</body>
+</html>
