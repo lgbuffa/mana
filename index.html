@@ -934,27 +934,40 @@ function onCellClick(idx) {
     return;
   }
 
-  // Respawn mode
+  const piece = state.board[idx];
+
+  // Mana exception: pode mover qualquer peça OU recolocar Ronin capturado
   if (state.mustRespawnInstead) {
+    if (state.selected !== null) {
+      if (state.validMoves.includes(idx)) {
+        state.mustRespawnInstead = false;
+        doMove(state.selected, idx);
+        return;
+      }
+      if (piece && piece.color === state.currentTurn) {
+        selectPiece(idx);
+        return;
+      }
+      state.selected = null;
+      state.validMoves = [];
+    }
+    if (piece && piece.color === state.currentTurn) {
+      selectPiece(idx);
+      return;
+    }
     handleRespawnClick(idx);
     return;
   }
 
-  const piece = state.board[idx];
-
-  // If clicking own piece: select it
+  // Fluxo normal
   if (piece && piece.color === state.currentTurn) {
     selectPiece(idx);
     return;
   }
-
-  // If clicking valid move destination
   if (state.validMoves.includes(idx)) {
     doMove(state.selected, idx);
     return;
   }
-
-  // Deselect
   state.selected = null;
   state.validMoves = [];
   renderBoard();
