@@ -723,8 +723,10 @@ let state = {
   gameOver: false,
   phase: 'setup', // 'setup' | 'play'
   setupCount: {red:0, yellow:0},
-  mustRespawnInstead: false, // when mana exception: can place captured ronin
-  respawnType: null, // which type to place on
+  mustRespawnInstead: false,
+  respawnType: null,
+  placingMana: false,      // waiting for current player to place mana bird
+  manaPlacementType: null, // cell type the mana bird must be placed on
   myColor: null,
   isMyTurn: false,
 };
@@ -840,6 +842,8 @@ function syncState() {
     setupCount: state.setupCount,
     mustRespawnInstead: state.mustRespawnInstead,
     respawnType: state.respawnType,
+    placingMana: state.placingMana,
+    manaPlacementType: state.manaPlacementType,
   }});
 }
 
@@ -873,6 +877,8 @@ function initBoard() {
   state.capturedYellowRonin = 0;
   state.gameOver = false;
   state.mustRespawnInstead = false;
+  state.placingMana = false;
+  state.manaPlacementType = null;
 }
 
 // ============================================================
@@ -906,6 +912,7 @@ function renderBoard() {
     if (i === state.manaCell) cell.classList.add('mana-cell');
     if (state.selected === i) cell.classList.add('selected');
     if (state.validMoves.includes(i)) cell.classList.add('valid-move');
+    if (state.placingMana && getCellType(i) === state.manaPlacementType) cell.classList.add('valid-move');
 
     const piece = state.board[i];
     if (piece) {
@@ -931,6 +938,26 @@ function onCellClick(idx) {
 
   if (state.phase === 'setup') {
     handleSetupClick(idx);
+    return;
+  }
+
+  // Fase de posicionamento do Pássaro Mana
+  if (state.placingMana) {
+    const t = getCellType(idx);
+    if (t !== state.manaPlacementType) {
+      notify(`Coloque o Pássaro Mana em casa ${TYPE_NAMES[state.manaPlacementType]}`);
+      return;
+    }
+    state.manaCell = idx;
+    state.placingMana = false;
+    state.manaPlacementType = null;
+    addLog(`${state.currentTurn==='red'?'Vermelho':'Amarelo'} posicionou Pássaro Mana`, state.currentTurn);
+    state.currentTurn = state.currentTurn === 'red' ? 'yellow' : 'red';
+    state.isMyTurn = (state.myColor === state.currentTurn);
+    checkManaException();
+    syncState();
+    renderBoard();
+    updateUI();
     return;
   }
 
@@ -1104,7 +1131,6 @@ function doMove(from, to) {
 
   state.board[to] = piece;
   state.board[from] = null;
-  state.manaCell = to;
   state.selected = null;
   state.validMoves = [];
 
@@ -1112,12 +1138,9 @@ function doMove(from, to) {
   const to_name = `(${Math.floor(to/6)+1},${to%6+1})`;
   addLog(`${state.currentTurn==='red'?'Vermelho':'Amarelo'}: ${piece.type} ${from_name}→${to_name}`, state.currentTurn);
 
-  // Switch turn
-  state.currentTurn = state.currentTurn === 'red' ? 'yellow' : 'red';
-  state.isMyTurn = (state.myColor === state.currentTurn);
-
-  // Check mana exception for next player
-  checkManaException();
+  // Enter mana placement phase — player chooses where to put the bird
+  state.placingMana = true;
+  state.manaPlacementType = getCellType(to);
 
   syncState();
   renderBoard();
@@ -1189,7 +1212,11 @@ function updateUI() {
     td.style.color = state.currentTurn === 'red' ? 'var(--red-light)' : 'var(--yellow)';
   } else {
     const isMe = state.myColor === state.currentTurn;
-    td.textContent = isMe ? '⚔ Sua vez!' : `Vez do ${state.currentTurn === 'red' ? 'Vermelho' : 'Amarelo'}`;
+    if (state.placingMana) {
+      td.textContent = isMe ? '🐦 Posicione o Mana' : 'Adversário posicionando Mana...';
+    } else {
+      td.textContent = isMe ? '⚔ Sua vez!' : `Vez do ${state.currentTurn === 'red' ? 'Vermelho' : 'Amarelo'}`;
+    }
     td.style.color = state.currentTurn === 'red' ? 'var(--red-light)' : 'var(--yellow)';
   }
 
@@ -1203,7 +1230,9 @@ function updateUI() {
 
   // Mana info
   const mi = document.getElementById('mana-info');
-  if (state.manaCell === null) {
+  if (state.placingMana) {
+    mi.textContent = `Posicione o Pássaro Mana em casa ${TYPE_NAMES[state.manaPlacementType]}`;
+  } else if (state.manaCell === null) {
     mi.textContent = 'Primeiro turno — sem restrição';
   } else {
     const t = getCellType(state.manaCell);
