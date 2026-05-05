@@ -939,6 +939,10 @@ function onCellClick(idx) {
       notify(`Coloque o Pássaro Mana em casa ${TYPE_NAMES[state.manaPlacementType]}`);
       return;
     }
+    if (state.board[idx] !== null) {
+      notify('Coloque o Pássaro Mana em uma casa vazia');
+      return;
+    }
     state.manaCell = idx;
     state.placingMana = false;
     state.manaPlacementType = null;
