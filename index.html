@@ -762,15 +762,24 @@ function initPeer(asHost) {
   peer.on('connection', (c) => {
     conn = c;
     setupConn();
-    if (asHost) {
-      state.myColor = 'red';
-      sendToOther({type:'color', color:'yellow'});
-      startSetupPhase();
-    }
+    conn.on('open', () => {
+      if (asHost) {
+        state.myColor = 'red';
+        sendToOther({type:'color', color:'yellow'});
+        startSetupPhase();
+      }
+    });
   });
 
   peer.on('error', (err) => {
-    notify('Erro de conexão: ' + err.type);
+    const msgs = {
+      'peer-unavailable': 'Sala não encontrada. Verifique o código.',
+      'server-error': 'Servidor indisponível. Tente novamente em instantes.',
+      'network': 'Sem conexão de rede.',
+      'socket-error': 'Falha no socket. Recarregue a página.',
+      'socket-closed': 'Conexão fechada inesperadamente.',
+    };
+    notify(msgs[err.type] || 'Erro de conexão: ' + err.type);
   });
 }
 
@@ -798,6 +807,7 @@ function setupConn() {
     handleMessage(data);
   });
   conn.on('close', () => notify('Adversário desconectou'));
+  conn.on('error', (err) => notify('Erro na conexão: ' + err));
 }
 
 function sendToOther(data) {
