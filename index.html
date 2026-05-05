@@ -407,6 +407,15 @@
     animation: pulse 1.5s infinite;
   }
 
+  .mana-bird-solo {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--mana);
+    box-shadow: 0 0 14px var(--mana), 0 0 24px var(--mana);
+    z-index: 2;
+    animation: pulse 1.5s infinite;
+  }
+
   @keyframes pulse {
     0%, 100% { box-shadow: 0 0 6px var(--mana); }
     50% { box-shadow: 0 0 14px var(--mana), 0 0 20px var(--mana); }
@@ -925,6 +934,10 @@ function renderBoard() {
         el.appendChild(tok);
       }
       cell.appendChild(el);
+    } else if (i === state.manaCell) {
+      const bird = document.createElement('div');
+      bird.className = 'mana-bird-solo';
+      cell.appendChild(bird);
     }
   });
 }
