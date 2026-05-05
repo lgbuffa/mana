@@ -357,16 +357,10 @@
   /* PIECES */
   .piece {
     width: clamp(36px, 6vw, 52px);
-    height: clamp(36px, 6vw, 52px);
-    border-radius: 50%;
+    height: clamp(40px, 7vw, 58px);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Cinzel', serif;
-    font-size: clamp(0.55rem, 1.2vw, 0.75rem);
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    border: 2px solid;
     transition: all 0.2s;
     position: relative;
     z-index: 1;
@@ -374,27 +368,13 @@
     cursor: pointer;
   }
 
-  .piece-red {
-    background: radial-gradient(circle at 35% 35%, #e74c3c, #8b1a1a);
-    border-color: #ff6b5b;
-    color: #fff;
-    box-shadow: 0 3px 10px rgba(192,57,43,0.5);
-  }
+  .piece svg { width: 100%; height: 100%; overflow: visible; }
 
-  .piece-yellow {
-    background: radial-gradient(circle at 35% 35%, #f1c40f, #8a6800);
-    border-color: #ffe066;
-    color: #1a1000;
-    box-shadow: 0 3px 10px rgba(212,160,23,0.5);
-  }
+  .piece-red { color: #ddd5c0; filter: drop-shadow(0 3px 6px rgba(200,180,120,0.5)); }
+  .piece-yellow { color: #1e1a14; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.7)); }
 
-  .piece.damyo {
-    border-width: 3px;
-    font-size: clamp(0.6rem, 1.3vw, 0.8rem);
-  }
-
-  .piece-red.damyo { border-color: #ff9999; box-shadow: 0 3px 14px rgba(192,57,43,0.8); }
-  .piece-yellow.damyo { border-color: #ffee99; box-shadow: 0 3px 14px rgba(212,160,23,0.8); }
+  .piece-red.damyo { filter: drop-shadow(0 3px 10px rgba(255,220,120,0.8)); }
+  .piece-yellow.damyo { filter: drop-shadow(0 3px 10px rgba(255,220,80,0.6)); }
 
   .mana-token {
     position: absolute;
@@ -408,12 +388,9 @@
   }
 
   .mana-bird-solo {
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    background: var(--mana);
-    box-shadow: 0 0 14px var(--mana), 0 0 24px var(--mana);
     z-index: 2;
     animation: pulse 1.5s infinite;
+    filter: drop-shadow(0 0 6px #f0a020);
   }
 
   @keyframes pulse {
@@ -927,7 +904,7 @@ function renderBoard() {
     if (piece) {
       const el = document.createElement('div');
       el.className = `piece piece-${piece.color}${piece.type==='damyo'?' damyo':''}`;
-      el.textContent = piece.type === 'damyo' ? 'DAMYO' : 'RONIN';
+      el.innerHTML = piece.type === 'damyo' ? svgDamyo() : svgRonin();
       if (i === state.manaCell) {
         const tok = document.createElement('div');
         tok.className = 'mana-token';
@@ -937,6 +914,7 @@ function renderBoard() {
     } else if (i === state.manaCell) {
       const bird = document.createElement('div');
       bird.className = 'mana-bird-solo';
+      bird.innerHTML = svgBird();
       cell.appendChild(bird);
     }
   });
@@ -1292,6 +1270,35 @@ function notify(msg) {
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// PIECE SVGs
+// ============================================================
+function svgRonin() {
+  return `<svg viewBox="0 0 32 42" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="2,28 9,8 16,24" fill="currentColor"/>
+    <polygon points="16,24 23,8 30,28" fill="currentColor"/>
+    <path d="M2,28 Q0,40 16,42 Q32,40 30,28 Q25,22 16,24 Q7,22 2,28Z" fill="currentColor"/>
+  </svg>`;
+}
+
+function svgDamyo() {
+  return `<svg viewBox="0 0 32 46" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="4,26 10,6 16,20 22,6 28,26" fill="currentColor"/>
+    <path d="M4,26 Q2,42 16,46 Q30,42 28,26 Q22,20 16,22 Q10,20 4,26Z" fill="currentColor"/>
+  </svg>`;
+}
+
+function svgBird() {
+  return `<svg viewBox="0 0 38 30" width="36" height="28" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="9,15 1,8 5,17 1,24 9,19" fill="#c07810"/>
+    <ellipse cx="19" cy="17" rx="10" ry="8" fill="#f0a020"/>
+    <path d="M15,12 Q19,3 29,7 Q25,14 15,12Z" fill="#e09018"/>
+    <circle cx="28" cy="11" r="6" fill="#f0a020"/>
+    <polygon points="33,10 39,12 33,14" fill="#c07810"/>
+    <circle cx="30" cy="9" r="1.5" fill="#1a1610"/>
+  </svg>`;
 }
 
 // ============================================================
