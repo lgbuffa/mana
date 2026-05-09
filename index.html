@@ -1004,10 +1004,18 @@ function handleSetupClick(idx) {
   // Red: row 0 (top), Yellow: row 5 (bottom)
   const validRow = color === 'red' ? 0 : 5;
   if (row !== validRow) { notify(`Posicione na fileira ${validRow === 0 ? 1 : 6}`); return; }
+
+  // Clicou numa peça própria — remove para reposicionar
+  if (state.board[idx] && state.board[idx].color === color) {
+    state.board[idx] = null;
+    state.setupCount[color]--;
+    syncState(); renderBoard(); updateUI();
+    return;
+  }
   if (state.board[idx]) { notify('Casa ocupada'); return; }
 
-  const count = state.setupCount[color];
-  const isDamyo = count === 0; // first piece placed is Damyo
+  const hasDamyo = state.board.some(p => p && p.color === color && p.type === 'damyo');
+  const isDamyo = !hasDamyo;
   if (isDamyo && getCellType(idx) !== 1) { notify('O Daimio deve ser posicionado em uma casa Dupla'); return; }
   state.board[idx] = {color, type: isDamyo ? 'damyo' : 'ronin'};
   state.setupCount[color]++;
