@@ -19,12 +19,12 @@
     --border: #3a3020;
     --text: #e8dcc8;
     --text-dim: #8a7a60;
-    --single: #1e2a1e;
-    --double: #2a1e2a;
-    --triple: #2a221a;
-    --single-border: #2d4a2d;
-    --double-border: #4a2d4a;
-    --triple-border: #4a3a1a;
+    --single: #000000;
+    --double: #000000;
+    --triple: #000000;
+    --single-border: #666666;
+    --double-border: #666666;
+    --triple-border: #666666;
     --mana: #00d4ff;
   }
 
@@ -331,15 +331,19 @@
   .cell.double { background: var(--double); border: 1px solid var(--double-border); }
   .cell.triple { background: var(--triple); border: 1px solid var(--triple-border); }
 
-  .cell-label {
-    font-family: 'Cinzel', serif;
-    font-size: 0.5rem;
-    letter-spacing: 0.05em;
-    opacity: 0.35;
-    text-transform: uppercase;
+  .cell-type-dots {
     position: absolute;
-    bottom: 3px;
-    right: 4px;
+    bottom: 5px;
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    justify-content: center;
+  }
+  .type-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #888888;
   }
 
   .cell.selected { outline: 2px solid var(--yellow); outline-offset: -2px; }
@@ -616,9 +620,9 @@
   <div class="board-wrap">
     <div id="board"></div>
     <div class="board-legend">
-      <div class="legend-item"><div class="legend-swatch swatch-single"></div>Simples (1)</div>
-      <div class="legend-item"><div class="legend-swatch swatch-double"></div>Dupla (2)</div>
-      <div class="legend-item"><div class="legend-swatch swatch-triple"></div>Tripla (3)</div>
+      <div class="legend-item"><div class="legend-swatch swatch-single"></div><div class="cell-type-dots" style="position:static"><div class="type-dot"></div></div>Simples</div>
+      <div class="legend-item"><div class="legend-swatch swatch-double"></div><div class="cell-type-dots" style="position:static"><div class="type-dot"></div><div class="type-dot"></div></div>Dupla</div>
+      <div class="legend-item"><div class="legend-swatch swatch-triple"></div><div class="cell-type-dots" style="position:static"><div class="type-dot"></div><div class="type-dot"></div><div class="type-dot"></div></div>Tripla</div>
     </div>
   </div>
 </div>
@@ -878,10 +882,14 @@ function buildBoard() {
     const cell = document.createElement('div');
     cell.className = `cell ${['single','double','triple'][t]}`;
     cell.dataset.idx = i;
-    const label = document.createElement('span');
-    label.className = 'cell-label';
-    label.textContent = TYPE_NAMES[t];
-    cell.appendChild(label);
+    const dots = document.createElement('div');
+    dots.className = 'cell-type-dots';
+    for (let d = 0; d <= t; d++) {
+      const dot = document.createElement('div');
+      dot.className = 'type-dot';
+      dots.appendChild(dot);
+    }
+    cell.appendChild(dots);
     cell.addEventListener('click', () => onCellClick(i));
     board.appendChild(cell);
   }
@@ -890,8 +898,8 @@ function buildBoard() {
 function renderBoard() {
   const cells = document.querySelectorAll('.cell');
   cells.forEach((cell, i) => {
-    // Remove piece children (keep label)
-    [...cell.children].forEach(c => { if (!c.classList.contains('cell-label')) c.remove(); });
+    // Remove piece children (keep type dots)
+    [...cell.children].forEach(c => { if (!c.classList.contains('cell-type-dots')) c.remove(); });
     cell.classList.remove('selected','valid-move','mana-cell');
 
     if (i === state.manaCell) cell.classList.add('mana-cell');
