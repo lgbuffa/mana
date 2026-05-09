@@ -847,7 +847,7 @@ function startSetupPhase() {
     sendToOther({type:'start'});
     syncState();
   }
-  addLog('Fase de setup: Vermelho posiciona suas peças nas 2 primeiras fileiras', 'red');
+  addLog('Fase de setup: Vermelho posiciona suas peças na fileira 1 (Daimio em casa Dupla)', 'red');
 }
 
 function initBoard() {
@@ -1001,13 +1001,14 @@ function handleSetupClick(idx) {
   const row = Math.floor(idx/6);
   const color = state.currentTurn;
 
-  // Red: rows 0-1 (top), Yellow: rows 4-5 (bottom)
-  const validRows = color === 'red' ? [0,1] : [4,5];
-  if (!validRows.includes(row)) { notify(`Posicione nas fileiras ${validRows.map(r=>r+1).join(' ou ')}`); return; }
+  // Red: row 0 (top), Yellow: row 5 (bottom)
+  const validRow = color === 'red' ? 0 : 5;
+  if (row !== validRow) { notify(`Posicione na fileira ${validRow === 0 ? 1 : 6}`); return; }
   if (state.board[idx]) { notify('Casa ocupada'); return; }
 
   const count = state.setupCount[color];
   const isDamyo = count === 0; // first piece placed is Damyo
+  if (isDamyo && getCellType(idx) !== 1) { notify('O Daimio deve ser posicionado em uma casa Dupla'); return; }
   state.board[idx] = {color, type: isDamyo ? 'damyo' : 'ronin'};
   state.setupCount[color]++;
 
@@ -1016,7 +1017,7 @@ function handleSetupClick(idx) {
   if (state.setupCount[color] === 6) {
     if (color === 'red') {
       state.currentTurn = 'yellow';
-      addLog('Amarelo: posicione suas peças (fileiras 5 e 6)', 'yellow');
+      addLog('Amarelo: posicione suas peças na fileira 6 (Daimio em casa Dupla)', 'yellow');
     } else {
       // Both done
       state.phase = 'play';
