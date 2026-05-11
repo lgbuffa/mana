@@ -362,6 +362,8 @@
     background: rgba(0,212,255,0.12);
   }
   .cell.mana-cell { box-shadow: 0 0 12px var(--mana), inset 0 0 8px rgba(0,212,255,0.1); }
+  .cell.cpu-from { background: rgba(241,196,15,0.08) !important; border-color: rgba(241,196,15,0.35) !important; }
+  .cell.cpu-to { background: rgba(241,196,15,0.22) !important; border-color: var(--yellow) !important; box-shadow: 0 0 12px rgba(212,160,23,0.5); }
   .cell:hover:not(.empty-hover) { filter: brightness(1.3); }
 
   /* PIECES */
@@ -736,6 +738,7 @@ let state = {
   isMyTurn: false,
   vscu: false,
   cpuDifficulty: 'facil',
+  cpuLastMove: null,
 };
 
 let peer = null;
@@ -919,9 +922,13 @@ function renderBoard() {
   cells.forEach((cell, i) => {
     // Remove piece children (keep type dots)
     [...cell.children].forEach(c => { if (!c.classList.contains('cell-type-dots')) c.remove(); });
-    cell.classList.remove('selected','valid-move','mana-cell');
+    cell.classList.remove('selected','valid-move','mana-cell','cpu-from','cpu-to');
 
     if (i === state.manaCell) cell.classList.add('mana-cell');
+    if (state.cpuLastMove) {
+      if (i === state.cpuLastMove.from) cell.classList.add('cpu-from');
+      if (i === state.cpuLastMove.to) cell.classList.add('cpu-to');
+    }
     if (state.selected === i) cell.classList.add('selected');
     if (state.validMoves.includes(i)) cell.classList.add('valid-move');
     if (state.placingMana && getCellType(i) === state.manaPlacementType) cell.classList.add('valid-move');
@@ -952,6 +959,7 @@ function renderBoard() {
 function onCellClick(idx) {
   if (state.gameOver) return;
   if (state.myColor !== state.currentTurn) return; // not your turn
+  if (state.cpuLastMove) { state.cpuLastMove = null; renderBoard(); }
 
   if (state.phase === 'setup') {
     handleSetupClick(idx);
@@ -1146,6 +1154,9 @@ function hasMovablePieceOfType(color, type) {
 // DO MOVE
 // ============================================================
 function doMove(from, to) {
+  if (state.vscu && state.currentTurn === 'yellow') {
+    state.cpuLastMove = {from, to};
+  }
   const piece = state.board[from];
   const target = state.board[to];
 
