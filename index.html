@@ -135,6 +135,12 @@
   }
   .btn-rules:hover { border-color: var(--text); color: var(--text); }
 
+  .btn-cpu { border-color: var(--mana); color: var(--mana); }
+  .btn-cpu:hover { background: var(--mana); color: var(--bg); }
+  .diff-group { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1rem; }
+  .btn-diff { border-color: var(--border); color: var(--text-dim); padding: 0.5rem 0.9rem; font-size: 0.75rem; }
+  .btn-diff.on { border-color: var(--mana); color: var(--mana); }
+
   .btn-group { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
   input[type="text"] {
@@ -579,6 +585,16 @@
     <p class="status-msg" id="join-status"></p>
   </div>
 
+  <div class="lobby-card">
+    <h2>🤖 Jogar vs CPU</h2>
+    <div class="diff-group">
+      <button class="btn btn-diff on" id="diff-facil" onclick="selectDiff('facil')">Fácil</button>
+      <button class="btn btn-diff" id="diff-medio" onclick="selectDiff('medio')">Médio</button>
+      <button class="btn btn-diff" id="diff-dificil" onclick="selectDiff('dificil')">Difícil</button>
+    </div>
+    <button class="btn btn-cpu" onclick="startVsCpu()">Iniciar</button>
+  </div>
+
   <button class="btn btn-rules" onclick="showRules()">📜 Ver Regras em Português</button>
 </div>
 
@@ -718,6 +734,8 @@ let state = {
   manaPlacementType: null, // cell type the mana bird must be placed on
   myColor: null,
   isMyTurn: false,
+  vscu: false,
+  cpuDifficulty: 'facil',
 };
 
 let peer = null;
@@ -818,6 +836,7 @@ function handleMessage(msg) {
 }
 
 function syncState() {
+  if (state.vscu) return;
   sendToOther({type:'state', state: {
     board: state.board,
     currentTurn: state.currentTurn,
@@ -960,6 +979,7 @@ function onCellClick(idx) {
     syncState();
     renderBoard();
     updateUI();
+    scheduleCpuTurn();
     return;
   }
 
@@ -1033,6 +1053,13 @@ function handleSetupClick(idx) {
   if (state.setupCount[color] === 6) {
     if (color === 'red') {
       state.currentTurn = 'yellow';
+      if (state.vscu) {
+        addLog('CPU posicionando peças...', 'yellow');
+        state.selected = null; state.validMoves = []; state.isMyTurn = false;
+        renderBoard(); updateUI();
+        setTimeout(cpuAutoSetup, 700);
+        return;
+      }
       addLog('Amarelo: posicione suas peças na fileira 6 (Daimio em casa Dupla)', 'yellow');
     } else {
       // Both done
@@ -1197,6 +1224,7 @@ function handleRespawnClick(idx) {
   syncState();
   renderBoard();
   updateUI();
+  scheduleCpuTurn();
 }
 
 // ============================================================
@@ -1204,6 +1232,7 @@ function handleRespawnClick(idx) {
 // ============================================================
 function endGame(winner) {
   state.gameOver = true;
+  saveHistory(winner);
   const msg = document.getElementById('win-message');
   msg.style.color = winner === 'red' ? 'var(--red-light)' : 'var(--yellow)';
   msg.textContent = `${winner === 'red' ? '🔴 VERMELHO' : '🟡 AMARELO'} VENCEU!`;
@@ -1224,7 +1253,9 @@ function updateUI() {
   } else {
     const isMe = state.myColor === state.currentTurn;
     if (state.placingMana) {
-      td.textContent = isMe ? '🐦 Posicione o Mana' : 'Adversário posicionando Mana...';
+      td.textContent = isMe ? '🐦 Posicione o Mana' : (state.vscu ? 'CPU posicionando Mana...' : 'Adversário posicionando Mana...');
+    } else if (state.vscu && !isMe) {
+      td.textContent = 'CPU pensando...';
     } else {
       td.textContent = isMe ? '⚔ Sua vez!' : `Vez do ${state.currentTurn === 'red' ? 'Vermelho' : 'Amarelo'}`;
     }
@@ -1256,8 +1287,12 @@ function updateUI() {
 
   // Your color indicator
   if (state.myColor) {
-    const you = state.myColor === 'red' ? 'Vermelho' : 'Amarelo';
-    document.querySelector('.subtitle').textContent = `Você é o ${you} · por Claude Leroy`;
+    if (state.vscu) {
+      document.querySelector('.subtitle').textContent = `Você é o Vermelho · vs CPU (${diffLabel()})`;
+    } else {
+      const you = state.myColor === 'red' ? 'Vermelho' : 'Amarelo';
+      document.querySelector('.subtitle').textContent = `Você é o ${you} · por Claude Leroy`;
+    }
   }
 }
 
@@ -1323,6 +1358,230 @@ function svgBird() {
     <polygon points="11,8 6,10 11,12" fill="#c07810"/>
     <circle cx="18" cy="8" r="2" fill="#1a1610"/>
   </svg>`;
+}
+
+// ============================================================
+// VS CPU
+// ============================================================
+let selectedDiff = 'facil';
+
+function selectDiff(d) {
+  selectedDiff = d;
+  ['facil','medio','dificil'].forEach(x =>
+    document.getElementById('diff-'+x).classList.toggle('on', x === d)
+  );
+}
+
+function diffLabel() {
+  return {facil:'Fácil', medio:'Médio', dificil:'Difícil'}[state.cpuDifficulty] || '';
+}
+
+function startVsCpu() {
+  state.vscu = true;
+  state.cpuDifficulty = selectedDiff;
+  state.myColor = 'red';
+  isHost = true;
+  startSetupPhase();
+}
+
+function cpuAutoSetup() {
+  const row5 = [30,31,32,33,34,35];
+  const doubles = row5.filter(i => getCellType(i) === 1);
+  const damyoCell = doubles[Math.floor(Math.random() * doubles.length)];
+  state.board[damyoCell] = {color:'yellow', type:'damyo'};
+  row5.filter(i => i !== damyoCell).forEach(i => {
+    state.board[i] = {color:'yellow', type:'ronin'};
+  });
+  state.setupCount.yellow = 6;
+  state.phase = 'play';
+  state.currentTurn = 'red';
+  state.isMyTurn = true;
+  addLog('CPU posicionou suas peças', 'yellow');
+  addLog('Jogo iniciado! Vez do Vermelho', 'red');
+  renderBoard();
+  updateUI();
+}
+
+function scheduleCpuTurn() {
+  if (!state.vscu || state.gameOver || state.phase !== 'play') return;
+  if (state.currentTurn !== 'yellow' || state.placingMana) return;
+  const delay = state.cpuDifficulty === 'dificil' ? 900 : 600;
+  setTimeout(cpuTakeTurn, delay);
+}
+
+function cpuTakeTurn() {
+  if (!state.vscu || state.gameOver || state.currentTurn !== 'yellow') return;
+
+  let moves = [];
+  if (state.manaCell !== null && !state.mustRespawnInstead) {
+    const manaType = getCellType(state.manaCell);
+    for (let i = 0; i < 36; i++) {
+      if (state.board[i]?.color !== 'yellow') continue;
+      if (getCellType(i) !== manaType) continue;
+      computeValidMoves(i, state.board, 'yellow').forEach(to => moves.push({from:i, to}));
+    }
+  }
+  if (moves.length === 0) {
+    for (let i = 0; i < 36; i++) {
+      if (state.board[i]?.color !== 'yellow') continue;
+      computeValidMoves(i, state.board, 'yellow').forEach(to => moves.push({from:i, to}));
+    }
+  }
+
+  if (moves.length === 0) {
+    if (state.capturedYellowRonin > 0) {
+      const empty = [];
+      for (let i = 0; i < 36; i++) if (!state.board[i]) empty.push(i);
+      if (empty.length > 0) {
+        const idx = empty[Math.floor(Math.random() * empty.length)];
+        state.board[idx] = {color:'yellow', type:'ronin'};
+        state.capturedYellowRonin--;
+        state.mustRespawnInstead = false;
+        state.manaCell = idx;
+        state.currentTurn = 'red';
+        state.isMyTurn = true;
+        addLog('CPU recolocou Ronin', 'yellow');
+        renderBoard(); updateUI();
+        return;
+      }
+    }
+    addLog('CPU passou a vez', 'yellow');
+    state.mustRespawnInstead = false;
+    state.currentTurn = 'red';
+    state.isMyTurn = true;
+    renderBoard(); updateUI();
+    return;
+  }
+
+  state.mustRespawnInstead = false;
+  const result = cpuPickMove(moves);
+  doMove(result.from, result.to);
+  setTimeout(cpuPlaceMana, 400);
+}
+
+function cpuPlaceMana() {
+  if (!state.placingMana || state.currentTurn !== 'yellow') return;
+  const type = state.manaPlacementType;
+  const opts = [];
+  for (let i = 0; i < 36; i++) {
+    if (getCellType(i) === type && !state.board[i]) opts.push(i);
+  }
+  const chosen = opts.length > 0 ? opts[Math.floor(Math.random() * opts.length)] : null;
+  if (chosen !== null) state.manaCell = chosen;
+  state.placingMana = false;
+  state.manaPlacementType = null;
+  addLog('CPU posicionou Pássaro Mana', 'yellow');
+  state.currentTurn = 'red';
+  state.isMyTurn = true;
+  checkManaException();
+  renderBoard(); updateUI();
+}
+
+function computeValidMoves(idx, board, movingColor) {
+  const steps = TYPE_MOVES[getCellType(idx)];
+  const moves = [];
+  function dfs(pos, remaining, visited) {
+    if (remaining === 0) {
+      if (!moves.includes(pos) && pos !== idx) moves.push(pos);
+      return;
+    }
+    const row = Math.floor(pos/6), col = pos%6;
+    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    for (const [dr,dc] of dirs) {
+      const nr=row+dr, nc=col+dc;
+      if (nr<0||nr>5||nc<0||nc>5) continue;
+      const nidx = nr*6+nc;
+      if (visited.has(nidx)) continue;
+      if (board[nidx] && remaining > 1) continue;
+      if (board[nidx] && remaining === 1 && board[nidx].color === movingColor) continue;
+      visited.add(nidx);
+      dfs(nidx, remaining-1, visited);
+      visited.delete(nidx);
+    }
+  }
+  dfs(idx, steps, new Set([idx]));
+  return moves;
+}
+
+function getMovesForColor(color, board) {
+  const moves = [];
+  for (let i = 0; i < 36; i++) {
+    if (board[i]?.color !== color) continue;
+    computeValidMoves(i, board, color).forEach(to => moves.push({from:i, to}));
+  }
+  return moves;
+}
+
+function cpuPickMove(moves) {
+  if (state.cpuDifficulty === 'facil') {
+    return moves[Math.floor(Math.random() * moves.length)];
+  }
+  for (const m of moves) {
+    if (state.board[m.to]?.type === 'damyo') return m;
+  }
+  const depth = state.cpuDifficulty === 'dificil' ? 1 : 0;
+  let best = moves[0], bestScore = -Infinity;
+  for (const m of moves) {
+    const s = scoreMove(m.from, m.to, state.board, depth, true);
+    if (s > bestScore) { bestScore = s; best = m; }
+  }
+  return best;
+}
+
+function scoreMove(from, to, board, depth, isMaximizing) {
+  const nb = board.slice();
+  const target = nb[to];
+  if (target?.type === 'damyo') return isMaximizing ? 10000 : -10000;
+  nb[to] = nb[from];
+  nb[from] = null;
+  if (depth === 0) return evalBoardStatic(nb);
+  const nextColor = isMaximizing ? 'red' : 'yellow';
+  const nextMoves = getMovesForColor(nextColor, nb);
+  if (nextMoves.length === 0) return evalBoardStatic(nb);
+  const sample = nextMoves.length > 7 ? [...nextMoves].sort(()=>Math.random()-0.5).slice(0,7) : nextMoves;
+  if (isMaximizing) {
+    let min = Infinity;
+    for (const m of sample) {
+      const s = scoreMove(m.from, m.to, nb, depth-1, false);
+      if (s < min) min = s;
+    }
+    return min;
+  } else {
+    let max = -Infinity;
+    for (const m of sample) {
+      const s = scoreMove(m.from, m.to, nb, depth-1, true);
+      if (s > max) max = s;
+    }
+    return max;
+  }
+}
+
+function evalBoardStatic(board) {
+  let score = 0;
+  for (let i = 0; i < 36; i++) {
+    const p = board[i];
+    if (!p) continue;
+    if (p.color === 'yellow') score += p.type === 'damyo' ? 500 : 10;
+    else score -= p.type === 'damyo' ? 500 : 10;
+  }
+  return score;
+}
+
+function saveHistory(winner) {
+  try {
+    const key = 'mana_history';
+    const hist = JSON.parse(localStorage.getItem(key) || '[]');
+    const logEl = document.getElementById('game-log');
+    hist.push({
+      date: new Date().toISOString(),
+      mode: state.vscu ? 'vs_cpu' : 'multiplayer',
+      difficulty: state.vscu ? state.cpuDifficulty : null,
+      winner,
+      log: [...logEl.querySelectorAll('.log-entry')].map(e => e.textContent),
+    });
+    if (hist.length > 100) hist.splice(0, hist.length - 100);
+    localStorage.setItem(key, JSON.stringify(hist));
+  } catch(e) {}
 }
 
 // ============================================================
