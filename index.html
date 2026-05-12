@@ -1138,7 +1138,7 @@ function getValidMoves(idx) {
       if (nr<0||nr>5||nc<0||nc>5) continue;
       const nidx = nr*6+nc;
       if (visited.has(nidx)) continue;
-      // Can't pass through any piece (can land on enemy)
+      if (nidx === state.manaCell) continue; // pássaro mana bloqueia passagem e pouso
       if (state.board[nidx] && remaining > 1) continue; // occupied mid-path
       if (state.board[nidx] && remaining === 1 && state.board[nidx].color === state.currentTurn) continue; // own piece
       visited.add(nidx);
@@ -1439,13 +1439,13 @@ function cpuTakeTurn() {
     for (let i = 0; i < 36; i++) {
       if (state.board[i]?.color !== 'yellow') continue;
       if (getCellType(i) !== manaType) continue;
-      computeValidMoves(i, state.board, 'yellow').forEach(to => moves.push({from:i, to}));
+      computeValidMoves(i, state.board, 'yellow', state.manaCell).forEach(to => moves.push({from:i, to}));
     }
   }
   if (moves.length === 0) {
     for (let i = 0; i < 36; i++) {
       if (state.board[i]?.color !== 'yellow') continue;
-      computeValidMoves(i, state.board, 'yellow').forEach(to => moves.push({from:i, to}));
+      computeValidMoves(i, state.board, 'yellow', state.manaCell).forEach(to => moves.push({from:i, to}));
     }
   }
 
@@ -1498,7 +1498,7 @@ function cpuPlaceMana() {
   renderBoard(); updateUI();
 }
 
-function computeValidMoves(idx, board, movingColor) {
+function computeValidMoves(idx, board, movingColor, manaCell) {
   const steps = TYPE_MOVES[getCellType(idx)];
   const moves = [];
   function dfs(pos, remaining, visited) {
@@ -1513,6 +1513,7 @@ function computeValidMoves(idx, board, movingColor) {
       if (nr<0||nr>5||nc<0||nc>5) continue;
       const nidx = nr*6+nc;
       if (visited.has(nidx)) continue;
+      if (nidx === manaCell) continue; // pássaro mana bloqueia passagem e pouso
       if (board[nidx] && remaining > 1) continue;
       if (board[nidx] && remaining === 1 && board[nidx].color === movingColor) continue;
       visited.add(nidx);
@@ -1528,7 +1529,7 @@ function getMovesForColor(color, board) {
   const moves = [];
   for (let i = 0; i < 36; i++) {
     if (board[i]?.color !== color) continue;
-    computeValidMoves(i, board, color).forEach(to => moves.push({from:i, to}));
+    computeValidMoves(i, board, color, state.manaCell).forEach(to => moves.push({from:i, to}));
   }
   return moves;
 }
