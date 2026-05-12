@@ -447,6 +447,14 @@
     font-weight: 900;
     letter-spacing: 0.2em;
     text-align: center;
+    white-space: pre-line;
+    line-height: 1.4;
+  }
+  #win-message .win-sub {
+    font-size: 0.45em;
+    letter-spacing: 0.15em;
+    opacity: 0.8;
+    display: block;
   }
 
   /* RULES MODAL */
@@ -1165,6 +1173,7 @@ function doMove(from, to) {
     if (target.type === 'damyo') {
       state.board[to] = piece;
       state.board[from] = null;
+      addLog(`${state.currentTurn==='red'?'Vermelho':'Amarelo'} capturou o Daimyo ${target.color==='red'?'vermelho':'amarelo'}!`, state.currentTurn);
       endGame(state.currentTurn);
       return;
     }
@@ -1246,7 +1255,7 @@ function endGame(winner) {
   saveHistory(winner);
   const msg = document.getElementById('win-message');
   msg.style.color = winner === 'red' ? 'var(--red-light)' : 'var(--yellow)';
-  msg.textContent = `${winner === 'red' ? '🔴 VERMELHO' : '🟡 AMARELO'} VENCEU!`;
+  msg.innerHTML = `${winner === 'red' ? '🔴 VERMELHO' : '🟡 AMARELO'} VENCEU!<span class="win-sub">Daimyo capturado</span>`;
   document.getElementById('win-overlay').classList.add('show');
   state.board[state.selected] = null;
   syncState();
