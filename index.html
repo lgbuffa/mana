@@ -1150,6 +1150,10 @@ function getValidMoves(idx) {
   return moves;
 }
 
+function hasPieceOfType(color, type) {
+  return state.board.some((p, i) => p && p.color === color && getCellType(i) === type);
+}
+
 function hasMovablePieceOfType(color, type) {
   for (let i=0; i<36; i++) {
     if (!state.board[i] || state.board[i].color !== color) continue;
@@ -1210,26 +1214,32 @@ function checkManaException() {
   if (state.manaCell === null) return;
   const manaType = getCellType(state.manaCell);
   const color = state.currentTurn;
+  const hasPiece = hasPieceOfType(color, manaType);
   const hasValid = hasMovablePieceOfType(color, manaType);
   const capturedRonin = color === 'red' ? state.capturedRedRonin : state.capturedYellowRonin;
 
-  if (!hasValid) {
+  if (!hasPiece) {
+    // Exceção 1: sem peças no tipo da Mana — pode recolocar Ronin ou mover qualquer peça
     state.mustRespawnInstead = capturedRonin > 0;
-    state.respawnType = manaType;
     if (capturedRonin > 0) {
       addLog(`Exceção Mana: ${color==='red'?'Vermelho':'Amarelo'} pode recolocar Ronin ou mover qualquer peça`, color);
     } else {
       addLog(`Exceção Mana: ${color==='red'?'Vermelho':'Amarelo'} move qualquer peça`, color);
       state.mustRespawnInstead = false;
     }
+  } else if (!hasValid) {
+    // Exceção 2: tem peças no tipo da Mana mas todas bloqueadas — passa a vez
+    addLog(`Exceção Mana: ${color==='red'?'Vermelho':'Amarelo'} está bloqueado — passa a vez`, color);
+    state.manaCell = null;
+    state.currentTurn = state.currentTurn === 'red' ? 'yellow' : 'red';
+    state.isMyTurn = (state.myColor === state.currentTurn);
+    scheduleCpuTurn();
   } else {
     state.mustRespawnInstead = false;
   }
 }
 
 function handleRespawnClick(idx) {
-  const t = getCellType(idx);
-  if (t !== state.respawnType) { notify(`Coloque em casa ${TYPE_NAMES[state.respawnType]}`); return; }
   if (state.board[idx]) { notify('Casa ocupada'); return; }
 
   state.board[idx] = {color: state.currentTurn, type: 'ronin'};
@@ -1238,14 +1248,12 @@ function handleRespawnClick(idx) {
 
   addLog(`${state.currentTurn==='red'?'Vermelho':'Amarelo'} recolocou Ronin`, state.currentTurn);
   state.mustRespawnInstead = false;
-  state.currentTurn = state.currentTurn === 'red' ? 'yellow' : 'red';
-  state.isMyTurn = (state.myColor === state.currentTurn);
-  state.manaCell = idx;
+  state.placingMana = true;
+  state.manaPlacementType = getCellType(idx);
 
   syncState();
   renderBoard();
   updateUI();
-  scheduleCpuTurn();
 }
 
 // ============================================================
@@ -1300,7 +1308,7 @@ function updateUI() {
   } else {
     const t = getCellType(state.manaCell);
     if (state.mustRespawnInstead) {
-      mi.textContent = `Exceção! Coloque Ronin em casa ${TYPE_NAMES[t]} OU mova qualquer peça`;
+      mi.textContent = `Exceção! Coloque Ronin em qualquer casa vazia OU mova qualquer peça`;
     } else {
       mi.textContent = `Mova peça em casa ${TYPE_NAMES[t]}`;
     }
@@ -1434,15 +1442,35 @@ function cpuTakeTurn() {
   if (!state.vscu || state.gameOver || state.currentTurn !== 'yellow') return;
 
   let moves = [];
+
   if (state.manaCell !== null && !state.mustRespawnInstead) {
     const manaType = getCellType(state.manaCell);
-    for (let i = 0; i < 36; i++) {
-      if (state.board[i]?.color !== 'yellow') continue;
-      if (getCellType(i) !== manaType) continue;
-      computeValidMoves(i, state.board, 'yellow', state.manaCell).forEach(to => moves.push({from:i, to}));
+    const hasOnType = hasPieceOfType('yellow', manaType);
+
+    if (hasOnType) {
+      // Tenta mover peça do tipo da Mana
+      for (let i = 0; i < 36; i++) {
+        if (state.board[i]?.color !== 'yellow') continue;
+        if (getCellType(i) !== manaType) continue;
+        computeValidMoves(i, state.board, 'yellow', state.manaCell).forEach(to => moves.push({from:i, to}));
+      }
+      if (moves.length === 0) {
+        // Exceção 2: tem peças no tipo mas todas bloqueadas — passa a vez
+        addLog('CPU passou a vez (peças bloqueadas)', 'yellow');
+        state.manaCell = null;
+        state.currentTurn = 'red';
+        state.isMyTurn = true;
+        renderBoard(); updateUI();
+        return;
+      }
+    } else {
+      // Exceção 1: sem peças no tipo — move qualquer peça ou recoloca Ronin
+      for (let i = 0; i < 36; i++) {
+        if (state.board[i]?.color !== 'yellow') continue;
+        computeValidMoves(i, state.board, 'yellow', state.manaCell).forEach(to => moves.push({from:i, to}));
+      }
     }
-  }
-  if (moves.length === 0) {
+  } else {
     for (let i = 0; i < 36; i++) {
       if (state.board[i]?.color !== 'yellow') continue;
       computeValidMoves(i, state.board, 'yellow', state.manaCell).forEach(to => moves.push({from:i, to}));
@@ -1450,6 +1478,7 @@ function cpuTakeTurn() {
   }
 
   if (moves.length === 0) {
+    // Exceção 1 sem movimento possível: tenta recolocar Ronin
     if (state.capturedYellowRonin > 0) {
       const empty = [];
       for (let i = 0; i < 36; i++) if (!state.board[i]) empty.push(i);
@@ -1458,11 +1487,11 @@ function cpuTakeTurn() {
         state.board[idx] = {color:'yellow', type:'ronin'};
         state.capturedYellowRonin--;
         state.mustRespawnInstead = false;
-        state.manaCell = idx;
-        state.currentTurn = 'red';
-        state.isMyTurn = true;
+        state.placingMana = true;
+        state.manaPlacementType = getCellType(idx);
         addLog('CPU recolocou Ronin', 'yellow');
         renderBoard(); updateUI();
+        setTimeout(cpuPlaceMana, 400);
         return;
       }
     }
